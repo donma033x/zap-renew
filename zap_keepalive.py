@@ -145,6 +145,7 @@ class YesCaptchaSolver:
                 "type": "NoCaptchaTaskProxyless",
                 "websiteURL": page_url,
                 "websiteKey": site_key,
+                "softID": "26129",
             }
         }
         response = requests.post(f"{self.base_url}/createTask", json=payload, timeout=30)
