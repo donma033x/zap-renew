@@ -15,10 +15,14 @@
 ## 安装
 
 ```bash
+# 安装系统依赖
+sudo apt install xvfb  # Debian/Ubuntu
+# sudo yum install xorg-x11-server-Xvfb  # CentOS/RHEL
+
 # 安装 uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 安装依赖
+# 安装项目依赖
 uv sync
 
 # 安装 Playwright 浏览器
