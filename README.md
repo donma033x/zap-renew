@@ -38,6 +38,7 @@ vim .env
 
 ```env
 # YesCaptcha API Key (必需，用于解决 reCAPTCHA)
+# 注册地址: https://yescaptcha.com/i/p3c40o
 YESCAPTCHA_API_KEY=your_api_key
 
 # 账号配置 (格式: 邮箱:密码，多账号逗号分隔)
@@ -50,6 +51,14 @@ STAY_DURATION=10
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
+
+### 获取 YesCaptcha API Key
+
+本脚本使用 [YesCaptcha](https://yescaptcha.com/i/p3c40o) 服务自动解决 reCAPTCHA 验证码。
+
+1. 访问 [YesCaptcha](https://yescaptcha.com/i/p3c40o) 注册账号
+2. 充值余额（解决 reCAPTCHA 约 ¥0.01/次）
+3. 在后台获取 API Key 填入配置文件
 
 ## 运行
 
