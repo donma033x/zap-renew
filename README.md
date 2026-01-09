@@ -2,6 +2,8 @@
 
 自动登录 ZAP-Hosting 并访问 VPS 详情页，保持 Lifetime VPS 活跃。
 
+> ⚠️ 本项目仅供学习网页自动化技术使用，请遵守 ZAP-Hosting 的服务条款。
+
 ## 功能
 
 - 支持多账号
