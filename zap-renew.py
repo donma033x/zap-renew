@@ -262,23 +262,7 @@ class ZapKeepAlive:
             Logger.log("登录", "找不到密码输入框", "ERROR")
             return False
         
-        Logger.log("登录", "点击 Login 按钮...")
-        login_btn = None
-        for selector in ['button:has-text("Login")', 'button:has-text("Log in")', 'input[type="submit"]']:
-            btns = await self.page.query_selector_all(selector)
-            for btn in btns:
-                if await btn.is_visible():
-                    login_btn = btn
-                    break
-            if login_btn:
-                break
-        
-        if login_btn:
-            await login_btn.click()
-        else:
-            await password_input.press('Enter')
-        await asyncio.sleep(3)
-        
+        # 先解决 reCAPTCHA，再点击登录按钮
         if self.solver:
             Logger.log("登录", "解决 reCAPTCHA 验证码...", "WAIT")
             try:
@@ -311,35 +295,29 @@ class ZapKeepAlive:
         else:
             Logger.log("登录", "未配置 YESCAPTCHA_API_KEY，跳过验证码", "WARN")
         
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
         
-        Logger.log("登录", "点击确认登录按钮...")
+        # 现在点击登录按钮
+        Logger.log("登录", "点击 Login 按钮...")
+        login_btn = None
+        for selector in ['button:has-text("Login")', 'button:has-text("Log in")', '.modal button[type="submit"]', 'input[type="submit"]']:
+            btns = await self.page.query_selector_all(selector)
+            for btn in btns:
+                try:
+                    if await btn.is_visible():
+                        login_btn = btn
+                        break
+                except:
+                    continue
+            if login_btn:
+                break
         
-        # 尝试多种方式点击登录按钮
-        clicked = False
-        
-        # 方法1: 查找 modal 里的登录按钮
-        for selector in [
-            '#recaptcha-login button:has-text("Log in")',
-            '.modal button:has-text("Log in")',
-            '.modal button[type="submit"]',
-            'form button:has-text("Log in")',
-            'button.btn-primary:has-text("Log in")'
-        ]:
-            try:
-                btn = await self.page.query_selector(selector)
-                if btn and await btn.is_visible():
-                    await btn.click(force=True)
-                    Logger.log("登录", f"点击了 {selector}", "OK")
-                    clicked = True
-                    break
-            except:
-                continue
-        
-        if not clicked:
-            # 方法2: 按 Enter
+        if login_btn:
+            await login_btn.click()
+            Logger.log("登录", "点击了登录按钮", "OK")
+        else:
+            await password_input.press('Enter')
             Logger.log("登录", "未找到按钮，按 Enter", "WARN")
-            await self.page.keyboard.press('Enter')
         
         Logger.log("登录", "等待登录结果...", "WAIT")
         
