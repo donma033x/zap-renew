@@ -285,12 +285,27 @@ class ZapKeepAlive:
                 recaptcha_token = self.solver.solve(RECAPTCHA_SITEKEY, LOGIN_URL)
                 await self.page.evaluate('''
                     (token) => {
+                        // 填入 token
                         const textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"]');
                         textareas.forEach(ta => { ta.style.display = 'block'; ta.value = token; });
+                        
+                        // 尝试触发回调
+                        if (typeof ___grecaptcha_cfg !== 'undefined') {
+                            const clients = ___grecaptcha_cfg.clients;
+                            for (const key in clients) {
+                                const client = clients[key];
+                                for (const prop in client) {
+                                    const val = client[prop];
+                                    if (val && typeof val === 'object' && val.callback) {
+                                        try { val.callback(token); } catch(e) {}
+                                    }
+                                }
+                            }
+                        }
                         return true;
                     }
                 ''', recaptcha_token)
-                Logger.log("登录", "reCAPTCHA token 已注入", "OK")
+                Logger.log("登录", "reCAPTCHA token 已注入并触发回调", "OK")
             except Exception as e:
                 Logger.log("登录", f"reCAPTCHA 错误: {e}", "WARN")
         else:
@@ -306,7 +321,22 @@ class ZapKeepAlive:
             await self.page.keyboard.press('Enter')
         
         Logger.log("登录", "等待登录结果...", "WAIT")
-        await asyncio.sleep(8)
+        
+        # 等待并检查多次
+        for i in range(10):
+            await asyncio.sleep(2)
+            url = self.page.url
+            if 'customer' in url:
+                Logger.log("登录", "登录成功!", "OK")
+                return True
+            # 检查是否有错误提示
+            try:
+                error_text = await self.page.evaluate('() => document.querySelector(".alert-danger, .error-message, .login-error")?.innerText || ""')
+                if error_text:
+                    Logger.log("登录", f"错误提示: {error_text[:100]}", "ERROR")
+                    break
+            except:
+                pass
         
         url = self.page.url
         if 'customer' in url:
