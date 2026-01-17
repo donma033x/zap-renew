@@ -313,7 +313,13 @@ class ZapKeepAlive:
             Logger.log("登录", "登录成功!", "OK")
             return True
         
-        Logger.log("登录", "登录失败", "ERROR")
+        # 调试信息
+        Logger.log("登录", f"登录失败 - 当前URL: {url}", "ERROR")
+        try:
+            page_text = await self.page.evaluate('() => document.body.innerText.substring(0, 500)')
+            Logger.log("登录", f"页面内容: {page_text[:200]}...", "INFO")
+        except:
+            pass
         return False
     
     async def visit_vps_detail(self) -> bool:
