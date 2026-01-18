@@ -332,7 +332,15 @@ class ZapKeepAlive:
             Logger.log("登录", "未找到按钮，按 Enter", "WARN")
         
         Logger.log("登录", "等待登录结果...", "WAIT")
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
+        
+        # 调试: 检查页面上是否有错误提示
+        try:
+            modal_content = await self.page.evaluate('() => document.querySelector(".modal-body, .modal-content")?.innerText || ""')
+            if modal_content:
+                Logger.log("登录", f"Modal 内容: {modal_content[:150]}", "INFO")
+        except:
+            pass
         
         # 关闭可能的弹窗
         await self.close_modals()
