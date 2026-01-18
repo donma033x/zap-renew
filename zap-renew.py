@@ -17,8 +17,6 @@ new Env('zap-renew')
     ACCOUNTS_ZAP: 账号配置，格式: 邮箱:密码,邮箱2:密码2
     YESCAPTCHA_API_KEY: YesCaptcha API密钥
     STAY_DURATION: 停留时间(秒)，默认10
-    TELEGRAM_BOT_TOKEN: Telegram机器人Token (可选)
-    TELEGRAM_CHAT_ID: Telegram聊天ID (可选)
 """
 
 import os
@@ -36,8 +34,6 @@ YESCAPTCHA_API_URL = "https://api.yescaptcha.com"
 
 ACCOUNTS_STR = os.environ.get('ACCOUNTS_ZAP', '')
 STAY_DURATION = int(os.environ.get('STAY_DURATION', '10'))
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 LOGIN_URL = "https://zap-hosting.com/en/#login"
 DASHBOARD_URL = "https://zap-hosting.com/en/customer/home/"
@@ -63,23 +59,11 @@ def get_session_file(email: str) -> Path:
     return SESSION_DIR / f"{safe_name}.json"
 
 
-class TelegramNotifier:
-    def __init__(self, bot_token: str, chat_id: str):
-        self.bot_token = bot_token
-        self.chat_id = chat_id
-        self.enabled = bool(bot_token and chat_id)
-    
-    def send(self, message: str) -> bool:
-        if not self.enabled:
-            return False
-        try:
-            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-            payload = {"chat_id": self.chat_id, "text": message, "parse_mode": "HTML"}
-            response = requests.post(url, json=payload, timeout=10)
-            return response.status_code == 200
-        except Exception as e:
-            print(f"Telegram 发送失败: {e}")
-            return False
+# 青龙通知
+try:
+    from notify import send as notify_send
+except ImportError:
+    def notify_send(title, content): print(f"[通知] {title}: {content}")
 
 
 class Logger:
@@ -551,9 +535,6 @@ async def main():
         print("错误: 无有效账号配置")
         exit(1)
     
-    telegram = TelegramNotifier(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
-    if telegram.enabled:
-        print("✓ Telegram 通知已启用")
     
     print()
     print("=" * 60)
@@ -585,29 +566,28 @@ async def main():
     print("=" * 60)
     print()
     
-    if telegram.enabled:
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        if success_count == len(results):
-            emoji = "✅"
-            title = "ZAP 保活成功"
-        elif success_count > 0:
-            emoji = "⚠️"
-            title = "ZAP 保活部分成功"
-        else:
-            emoji = "❌"
-            title = "ZAP 保活失败"
-        
-        msg_lines = [f"{emoji} <b>{title}</b>", ""]
-        for r in results:
-            status = "✅" if r['success'] else "❌"
-            msg_lines.append(f"{status} {r['email']}")
-        msg_lines.append("")
-        msg_lines.append(f"📊 结果: {success_count}/{len(results)} 成功")
-        msg_lines.append(f"🕒 时间: {now}")
-        
-        message = "\n".join(msg_lines)
-        telegram.send(message)
-        print("✓ 已发送 Telegram 通知")
+    # 发送汇总通知
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if success_count == len(results):
+        notify_title = "ZAP 保活成功"
+        emoji = "✅"
+    elif success_count > 0:
+        notify_title = "ZAP 保活部分成功"
+        emoji = "⚠️"
+    else:
+        notify_title = "ZAP 保活失败"
+        emoji = "❌"
+    
+    msg_lines = [f"{emoji} {notify_title}", ""]
+    for r in results:
+        status = "✅" if r['success'] else "❌"
+        msg_lines.append(f"{status} {r['email']}")
+    msg_lines.append("")
+    msg_lines.append(f"📊 结果: {success_count}/{len(results)} 成功")
+    msg_lines.append(f"🕒 时间: {now}")
+    
+    message = "\n".join(msg_lines)
+    notify_send(notify_title, message)
     
     return success_count == len(results)
 
