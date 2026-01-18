@@ -14,7 +14,7 @@ new Env('zap-renew')
 6. 保存会话供下次使用
 
 环境变量:
-    ACCOUNTS_ZAP: 账号配置，格式: 邮箱:密码,邮箱2:密码2
+    ZAP_ACCOUNT: 账号配置，格式: 邮箱:密码,邮箱2:密码2
     YESCAPTCHA_API_KEY: YesCaptcha API密钥
     STAY_DURATION: 停留时间(秒)，默认10
 """
@@ -32,7 +32,7 @@ from playwright.async_api import async_playwright
 YESCAPTCHA_API_KEY = os.environ.get('YESCAPTCHA_API_KEY', '')
 YESCAPTCHA_API_URL = "https://api.yescaptcha.com"
 
-ACCOUNTS_STR = os.environ.get('ACCOUNTS_ZAP', '')
+ACCOUNTS_STR = os.environ.get('ZAP_ACCOUNT', '')
 STAY_DURATION = int(os.environ.get('STAY_DURATION', '10'))
 
 LOGIN_URL = "https://zap-hosting.com/en/#login"
@@ -527,7 +527,7 @@ async def main():
         print("警告: 未设置 YESCAPTCHA_API_KEY 环境变量，登录时可能无法自动解决验证码")
     
     if not ACCOUNTS_STR:
-        print("错误: 未设置 ACCOUNTS_ZAP 环境变量")
+        print("错误: 未设置 ZAP_ACCOUNT 环境变量")
         exit(1)
     
     accounts = parse_accounts(ACCOUNTS_STR)
