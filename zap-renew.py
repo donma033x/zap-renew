@@ -218,10 +218,22 @@ class ZapKeepAlive:
                      await self.page.query_selector('a:has-text("Log in")')
         if login_link:
             await login_link.click()
-            await asyncio.sleep(2)
+            Logger.log("登录", "已点击登录链接", "OK")
+        
+        # 点击后 reCAPTCHA 开始加载，立即开始解决
+        recaptcha_task = None
+        if self.solver:
+            Logger.log("登录", "开始解决 reCAPTCHA (异步)...", "WAIT")
+            # 异步创建任务
+            import concurrent.futures
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            recaptcha_task = executor.submit(self.solver.solve, RECAPTCHA_SITEKEY, LOGIN_URL)
+        
+        await asyncio.sleep(2)  # 等待对话框加载
         
         Logger.log("登录", "填写登录表单...")
         
+        # 查找用户名输入框
         email_input = None
         for selector in ['input[placeholder*="E-Mail"]', 'input[placeholder*="e-mail"]', 
                          'input[placeholder*="Username"]', '.modal input[type="text"]']:
@@ -247,6 +259,7 @@ class ZapKeepAlive:
             Logger.log("登录", "找不到用户名输入框", "ERROR")
             return False
         
+        # 查找密码输入框
         password_input = None
         all_passwords = await self.page.query_selector_all('input[type="password"]')
         for pwd in all_passwords:
@@ -262,18 +275,19 @@ class ZapKeepAlive:
             Logger.log("登录", "找不到密码输入框", "ERROR")
             return False
         
-        # 先解决 reCAPTCHA，再点击登录按钮
-        if self.solver:
-            Logger.log("登录", "解决 reCAPTCHA 验证码...", "WAIT")
+        # 等待 reCAPTCHA 结果并注入
+        if recaptcha_task:
+            Logger.log("登录", "等待 reCAPTCHA 结果...", "WAIT")
             try:
-                recaptcha_token = self.solver.solve(RECAPTCHA_SITEKEY, LOGIN_URL)
+                recaptcha_token = recaptcha_task.result(timeout=120)
+                Logger.log("登录", "reCAPTCHA 已解决", "OK")
+                
+                # 注入 token
                 await self.page.evaluate('''
                     (token) => {
-                        // 填入 token
                         const textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"]');
                         textareas.forEach(ta => { ta.style.display = 'block'; ta.value = token; });
                         
-                        // 尝试触发回调
                         if (typeof ___grecaptcha_cfg !== 'undefined') {
                             const clients = ___grecaptcha_cfg.clients;
                             for (const key in clients) {
@@ -289,28 +303,26 @@ class ZapKeepAlive:
                         return true;
                     }
                 ''', recaptcha_token)
-                Logger.log("登录", "reCAPTCHA token 已注入并触发回调", "OK")
+                Logger.log("登录", "reCAPTCHA token 已注入", "OK")
             except Exception as e:
-                Logger.log("登录", f"reCAPTCHA 错误: {e}", "WARN")
+                Logger.log("登录", f"reCAPTCHA 错误: {e}", "ERROR")
+                return False
         else:
-            Logger.log("登录", "未配置 YESCAPTCHA_API_KEY，跳过验证码", "WARN")
+            Logger.log("登录", "未配置 YESCAPTCHA_API_KEY", "WARN")
         
-        await asyncio.sleep(1)
-        
-        # 现在点击登录按钮
+        # 立即点击登录按钮
         Logger.log("登录", "点击 Login 按钮...")
         login_btn = None
-        for selector in ['button:has-text("Login")', 'button:has-text("Log in")', '.modal button[type="submit"]', 'input[type="submit"]']:
-            btns = await self.page.query_selector_all(selector)
-            for btn in btns:
-                try:
-                    if await btn.is_visible():
-                        login_btn = btn
-                        break
-                except:
-                    continue
-            if login_btn:
-                break
+        for selector in ['.modal button:has-text("Login")', '.modal button:has-text("Log in")', 
+                         'button:has-text("Login")', 'button:has-text("Log in")', 
+                         '.modal button[type="submit"]']:
+            try:
+                btn = await self.page.query_selector(selector)
+                if btn and await btn.is_visible():
+                    login_btn = btn
+                    break
+            except:
+                continue
         
         if login_btn:
             await login_btn.click()
@@ -320,18 +332,27 @@ class ZapKeepAlive:
             Logger.log("登录", "未找到按钮，按 Enter", "WARN")
         
         Logger.log("登录", "等待登录结果...", "WAIT")
+        await asyncio.sleep(3)
+        
+        # 关闭可能的弹窗
+        await self.close_modals()
         
         # 等待并检查多次
-        for i in range(10):
+        for i in range(15):
             await asyncio.sleep(2)
+            
+            # 每次都尝试关闭弹窗
+            await self.close_modals()
+            
             url = self.page.url
             if 'customer' in url:
                 Logger.log("登录", "登录成功!", "OK")
                 return True
+            
             # 检查是否有错误提示
             try:
-                error_text = await self.page.evaluate('() => document.querySelector(".alert-danger, .error-message, .login-error")?.innerText || ""')
-                if error_text:
+                error_text = await self.page.evaluate('() => document.querySelector(".alert-danger, .error-message, .login-error, .text-danger")?.innerText || ""')
+                if error_text and 'wrong' in error_text.lower():
                     Logger.log("登录", f"错误提示: {error_text[:100]}", "ERROR")
                     break
             except:
